@@ -32,14 +32,14 @@ for arg in argv[4:]:
         print 'Problem with input', arg
 
 
-lin = lambda v, x: v[0] + v[1]*x
+# lin = lambda v, x: v[0] + v[1]*x
 poly  = lambda v, x: v[0] * x ** v[1]
 
-ilin = lambda v, y: (-v[0] + y)/v[1]
+# ilin = lambda v, y: (-v[0] + y)/v[1]
 ipoly = lambda v, y: ( y / v[0] ) ** (1/v[1])
 
-functions = [ [ lin, poly ], ["linear","polytrope"] ]
-ifunctions = [ [ ilin, ipoly ], ["linear","polytrope"] ]
+functions = [ [  poly ], ["polytrope"] ]
+ifunctions = [ [  ipoly ], ["polytrope"] ]
 
 
 # Loop through files (in current implementation only one file allowed)
@@ -68,14 +68,14 @@ for pvfile in files:
         params = fitandplot(p, v, ysigma, [ guess, guess],functions)
 
     # Print fit parameters
-    print 'Polytrope fit Parameters : ', params[1][1][0].tolist()
+    print 'Polytrope fit Parameters : ', params[0][1][0].tolist()
 
 # fit p(v)
 # When to be found in terms of the original dependent variable
 #    pyplot.figure()
 #     pyplot.figure(fignum)
 #     fignum = fignum + 1
-    params2 = fit(v, p, ysigma,[params[0][1][0].tolist(), params[1][1][0].tolist()],ifunctions)
+    params2 = fit(v, p, ysigma,[params[i][1][0].tolist() for i in range(len(ifunctions[0]))],ifunctions)
 
 #    params2 = params # When to be found in terms of the original independent variable
     
@@ -97,33 +97,46 @@ for pvfile in files:
     # Esto,ate vp;i,e at target pressure
     volumes = [ ]
     cubic_as = [ ] 
-    for pt in xs:
+    for ptar in xs: # for each given target pressure
         po = p[0]
         idx = 0
-        for i in range(1,len(p)):
-            if ( pt - p[i]  )**2 < (po - pt )**2:
+        for i in range(1,len(p)): # find the index of data point closest to the target pressure
+            if ( ptar - p[i]  )**2 < (po - ptar )**2:
                 po =  p[i]
                 idx = i
                 
-        vo = v[idx]       
+        vo = v[idx] #the volume corresponding to the closest pressure 
+
         print "Closest point in fit dataset: p=", po, " v=",vo
-        for i in range( 1, len(params2)): # only the polytrope
+        for i in range( 0, len(params)): 
     #     try:
-            esto = functions[0][i](params[i][1][0].tolist(),po)
-            shift = vo - esto 
-            est = functions[0][i](params[i][1][0].tolist(),pt)
-            shift_est = est + shift
+            # use a fractional shift of volume from the closest pressure in the data
+            vfitclosest = functions[0][i](params[i][1][0].tolist(),po)
+            shiftclosest = vo - vfitclosest 
+            fracshift = shiftclosest/vfitclosest
+
+            vfittarget = functions[0][i](params[i][1][0].tolist(),ptar)
+            shifttarget = fracshift*vfittarget
+            vest = vfittarget + shifttarget
 #             error1 =  ferror(functions[0][i],pt,params2[i][1][0].tolist(), params2[i][1][1]) 
 #             error2 =  ferror_s(functions[0][i],pt,params2[i][1][0].tolist(), params2[i][1][1],po,vo) 
 #             error3 = ferror_s(functions[0][i],pt,params[i][1][0].tolist(), params2[i][1][1],po,vo)
             
+            if makeplots == 1:
+                pyplot.figure(i+1)            
+                x = [po,ptar]
+                plotx = linspace(min(x),max(x),100)
+                pyplot.plot(plotx,  [ functions[i][0](params[i][1][0].tolist(), j)*(1+fracshift) for j in plotx] , 'k--', linewidth=2)
+                
+                pyplot.plot(po,vo,'k*')
+                pyplot.plot(po,vfitclosest,'k*')
+                pyplot.plot(ptar,vfittarget,'go')
+                pyplot.plot(ptar,vest,'ro')
 
-#             pyplot.figure(fignum-2)            
-#             pyplot.plot([pt,po], [shift_est,vo] , 'k--', linewidth=3)
 
-            print str(params[i][0]), ' estimate= ', est, ' shift= ', shift,' v= ',shift_est, ' ', ' a= ',shift_est**(1.0/3)
-            volumes.append(shift_est)
-            cubic_as.append(shift_est**(1.0/3))
+            print str(params[i][0]), ' Vfit= ', vfittarget, ' shift= ', shifttarget,' vshifted= ',vest, ' ', ' a= ',vest**(1.0/3)
+            volumes.append(vest)
+            cubic_as.append(vest**(1.0/3))
             
 #            print "error estimates: ", error1, ' ', error2, ' ', error3
     #     except:

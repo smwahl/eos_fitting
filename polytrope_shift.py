@@ -1,16 +1,16 @@
 #! /Library/Frameworks/Python.framework/Versions/2.7/bin/python
 
-# Sean Wahl
-# Thu Jun 20 11:02:28 PDT 2013
-# Shifts a set of PV EOS points in order to pass through an additional point.
-# Useful for guessing the EOS at a different temperature with only one new data
-# point. For a given file then gives an estimated volume for the target pressure
-# at the new 
+'''Sean Wahl
+Fri Aug 30 16:58:46 PDT 2013
+Shifts a set of PV EOS points in order to pass through an additional point.
+Useful for guessing the EOS at a different temperature with only one new data
+point. For a given file then gives an estimated volume for the target pressure. 
 
-# Note this implementation uses absolute differences in pressure to shift the
-# EOS by a constant amount.
+Note this implementation uses fractional differences in volume (assumes a constant
+value for the volumetric coefficient of thermal expansion) when shifting the fit
+curve to pass through the new volume
 
-# Usage: polytrope_shift.py filename 'V index' 'P current' [ 'V current' 'P current', 'P target'] ...
+Usage: polytrope_shift.py filename 'V index' 'P current' [ 'V current' 'P current', 'P target'] ... '''
 
 from sys import *
 from numpy import *
@@ -32,14 +32,18 @@ Vcol = int(argv[2])
 Pcol = int(argv[3])
 corrs = argv[4:]
 
-lin = lambda v, x: v[0] + v[1]*x
+# lin = lambda v, x: v[0] + v[1]*x
 poly  = lambda v, x: v[0] * x ** v[1]
 
-ilin = lambda v, y: (-v[0] + y)/v[1]
+# ilin = lambda v, y: (-v[0] + y)/v[1]
 ipoly = lambda v, y: ( y / v[0] ) ** (1/v[1])
 
-functions = [ [ lin, poly ], ["linear","polytrope"] ]
-ifunctions = [ [ ilin, ipoly ], ["linear","polytrope"] ]
+functions = [ [  poly ], ["polytrope"] ]
+ifunctions = [ [ ipoly ], ["polytrope"] ]
+
+
+functions = [ [ poly ], ["polytrope"] ]
+ifunctions = [ [ ipoly ], ["polytrope"] ]
 
 
 # Loop through files (in current implementation only one file allowed)
@@ -68,10 +72,10 @@ for pvfile in files:
         params = fitandplot(p, v, ysigma, [ guess, guess],functions)
 
     # Print fit parameters
-    print 'Polytrope fit Parameters : ', params[1][1][0].tolist()
+    print 'Polytrope fit Parameters : ', params[0][1][0].tolist()
 
     # Fit parameters to use for correction
-    polyParam = params[1][1][0].tolist()
+    polyParam = params[0][1][0].tolist()
 
     volumes = [ ]
     cubic_as = [ ] 
@@ -84,15 +88,21 @@ for pvfile in files:
         ptar = float(corrs[2])
         corrs = corrs[3:]
 
-        print vcurr, pcurr
+        print 'Shifting curve to V=',vcurr,' P=', pcurr
 
-        vo = vcurr
-        po = ifunctions[0][1](polyParam,vo)
-        pshift = pcurr - po
-        print str(params[1][0]), ' Vcur= ', vo, ' Pcur= ',pcurr,' Pfit= ',po,' Pshift= ', pshift
+        vo = functions[0][0](polyParam,pcurr) # find volume on fit curve corresponding to pcurr
+        # first shift
+        po = pcurr 
 
-        pnew = [ i + pshift for i in p ]
-        vnew = [ i for i in v ]
+        shifto = vcurr - vo # volume shift at from curve at pcurr
+        fracShift = shifto / vo # fractional shift (this is the constant) applied
+                                  # the function
+
+        
+        print str(params[0][0]), ' Vfit= ',po,' Vshift= ', shifto, ' frac_shift= ', fracShift
+
+        pnew = [ i for i in p ]
+        vnew = [ i*(1+fracShift) for i in v ]
         print vnew
         pnew.append(pcurr)
         vnew.append(vcurr)
@@ -115,24 +125,27 @@ for pvfile in files:
 
         print 'Estimating volume at target pressure: ', ptar 
 
-        vest = functions[0][1](polyParam,ptar-pshift)
+        vcurvetar = functions[0][0](polyParam,ptar) # fit volume at vtar
+        shift = fracShift*vcurvetar
+        vest = vcurvetar + shift
 
-        print '    Vest = ', vest
+        print 'Vfit=',vcurvetar,' Vshift=',shift,' Vest=', vest
 
         volumes.append(vest)
         cubic_as.append(vest**(1.0/3))
 
         if makeplots == 1:
-            pyplot.figure(2)
+            pyplot.figure(1)
 
             x = pnew + [ po, pcurr, ptar]
             pyplot.plot()
             plotx = linspace(min(x), max(x), 1000)
-            pyplot.plot(plotx,  [ functions[0][1](polyParam, j-pshift) for j in plotx], 'c-', linewidth=3)
+            pyplot.plot(plotx,  [ functions[0][0](polyParam, j)*(1+fracShift) for j in plotx] ,'k--', linewidth=2 )
 
             pyplot.plot(po,vo,'k*')
             pyplot.plot(pcurr,vcurr,'k*')
-            pyplot.plot(ptar,vest,'r*')
+            pyplot.plot(ptar,vcurvetar,'go')
+            pyplot.plot(ptar,vest,'ro')
 
     # Print results for all corrections using the file
     print 'Volumes: ', volumes
