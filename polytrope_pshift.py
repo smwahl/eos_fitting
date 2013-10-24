@@ -1,4 +1,5 @@
-#! /Library/Frameworks/Python.framework/Versions/2.7/bin/python
+#! /u/smwahl/packages/anaconda/bin/python
+# /Library/Frameworks/Python.framework/Versions/2.7/bin/python
 
 # Sean Wahl
 # Thu Jun 20 11:02:28 PDT 2013

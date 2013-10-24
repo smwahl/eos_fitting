@@ -1,4 +1,5 @@
-#! /Library/Frameworks/Python.framework/Versions/2.7/bin/python
+#! /u/smwahl/packages/anaconda/bin/python
+# /Library/Frameworks/Python.framework/Versions/2.7/bin/python
 
 '''Sean Wahl
 Fri Aug 30 16:58:46 PDT 2013
@@ -10,7 +11,7 @@ Note this implementation uses fractional differences in volume (assumes a consta
 value for the volumetric coefficient of thermal expansion) when shifting the fit
 curve to pass through the new volume
 
-Usage: polytrope_shift.py filename 'V index' 'P current' [ 'V current' 'P current', 'P target'] ... '''
+Usage: polytrope_shift.py filename 'V index' 'P current' 'V multiplier' 'P multiplier' [ 'V current' 'P current', 'P target'] ... '''
 
 from sys import *
 from numpy import *
@@ -27,16 +28,23 @@ args = argv[1:]
 files = []
 xs = []
 
+# read in parameters from commandline
 files.append(str(argv[1]))
 Vcol = int(argv[2])
 Pcol = int(argv[3])
-corrs = argv[4:]
+vmult = float(argv[4]) # multiple for shifted data
+corrs = argv[5:]
+#pmult = float(argv[5])
+#corrs = argv[6:]
 
 # lin = lambda v, x: v[0] + v[1]*x
-poly  = lambda v, x: v[0] * x ** v[1]
+poly  = lambda v, x: v[0] * x ** v[1]  # V(P)
+
+# corrected EOS, f = ( observed dP) / (predicted dP)
+poly_corr = lambda v, x, f:  v[0] * (x / f) ** v[1]
 
 # ilin = lambda v, y: (-v[0] + y)/v[1]
-ipoly = lambda v, y: ( y / v[0] ) ** (1/v[1])
+ipoly = lambda v, y: ( y / v[0] ) ** (1/v[1])  # P(V)
 
 functions = [ [  poly ], ["polytrope"] ]
 ifunctions = [ [ ipoly ], ["polytrope"] ]
@@ -90,7 +98,10 @@ for pvfile in files:
 
         print 'Shifting curve to V=',vcurr,' P=', pcurr
 
+#        vo = vmult * poly_corr(polyParam,pcurr,pmult)
         vo = functions[0][0](polyParam,pcurr) # find volume on fit curve corresponding to pcurr
+        
+        vo = vo*vmult # multiply if shifted runs are difference cell size
         # first shift
         po = pcurr 
 
@@ -101,8 +112,8 @@ for pvfile in files:
         
         print str(params[0][0]), ' Vfit= ',po,' Vshift= ', shifto, ' frac_shift= ', fracShift
 
-        pnew = [ i for i in p ]
-        vnew = [ i*(1+fracShift) for i in v ]
+        pnew = [ i for i in p ] 
+        vnew = [ i*vmult*(1+fracShift) for i in v ]
         print vnew
         pnew.append(pcurr)
         vnew.append(vcurr)
@@ -125,7 +136,8 @@ for pvfile in files:
 
         print 'Estimating volume at target pressure: ', ptar 
 
-        vcurvetar = functions[0][0](polyParam,ptar) # fit volume at vtar
+        vcurvetar = vmult*functions[0][0](polyParam,ptar) # fit volume at vtar
+#        vcurvetar = vmult *poly_corr(polyParam,ptar,pmult)
         shift = fracShift*vcurvetar
         vest = vcurvetar + shift
 
