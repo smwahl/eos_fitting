@@ -15,7 +15,8 @@ from jlab_library import *
 from eosfitlib import *
 
 # Options: (0 = false, 1 = true)
-makeplots = 1
+makeplots = 0
+verbose = 0
 
 # start of main script
 args = argv[1:]
@@ -52,12 +53,13 @@ for pvfile in files:
     v = data[Vcol]
 
     # print input data 
-    print pvfile, ': '
-    print '      V             P'
-    for i in range(0, len(p)):
-        print '    ',v[i], ' ', p[i]
+    if verbose == 1:
+        print pvfile, ': '
+        print '      V             P'
+        for i in range(0, len(p)):
+            print '    ',v[i], ' ', p[i]
 
-    print ''
+        print ''
     ysigma = array([0.1 for item in v]) # set in case inverse fit is needed
 
     guess = [1.0, 0.01 ]
@@ -69,7 +71,8 @@ for pvfile in files:
         params = fitandplot(p, v, ysigma, [ guess, guess],functions)
 
     # Print fit parameters
-    print 'Polytrope fit Parameters : ', params[0][1][0].tolist()
+    if verbose == 1:
+        print 'Polytrope fit Parameters : ', params[0][1][0].tolist()
 
 # fit p(v)
 # When to be found in terms of the original dependent variable
@@ -108,7 +111,9 @@ for pvfile in files:
                 
         vo = v[idx] #the volume corresponding to the closest pressure 
 
-        print "Closest point in fit dataset: p=", po, " v=",vo
+        if verbose == 1:
+            print "Closest point in fit dataset: p=", po, " v=",vo
+
         for i in range( 0, len(params)): 
     #     try:
             # use a fractional shift of volume from the closest pressure in the data
@@ -135,7 +140,8 @@ for pvfile in files:
                 pyplot.plot(ptar,vest,'ro')
 
 
-            print str(params[i][0]), ' Vfit= ', vfittarget, ' shift= ', shifttarget,' vshifted= ',vest, ' ', ' a= ',vest**(1.0/3)
+            if verbose == 1:
+                print str(params[i][0]), ' Vfit= ', vfittarget, ' shift= ', shifttarget,' vshifted= ',vest, ' ', ' a= ',vest**(1.0/3)
             volumes.append(vest)
             cubic_as.append(vest**(1.0/3))
             
@@ -150,4 +156,7 @@ if makeplots == 1:
 #    f2 = pyplot.figure(2)
 #    f2.show()
     pyplot.show()
+
+# if __name__ == "__main__":
+#     return volumes, cubic_as
 
